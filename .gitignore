@@ -1,0 +1,43 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.env
+.idea/
+.vscode/
+node_modules/
+dist/
+
+# Generated benchmark output
+eval_reports/
+
+# Later assignments (not part of Assignment 1)
+rag/
+tools/
+knowledge_base/
+data/
+calendars/
+backend/app/voice_pipeline.py
+tests/test_rag_evals.py
+tests/test_tool_evals.py
+
+# Existing later-assignment and generated workspace files
+.deepeval/
+main.py
+run_evals.py
+tests/*
+!tests/test_assignment_one.py
+backend/app/voice_pipeline.py
+backend/POSTMAN_TESTING_GUIDE.md
+backend/DOCKER_README.md
+backend/Hotel_AI_Backend.postman_environment.json
+backend/build.bat
+backend/build.sh
+backend/test
+backend/test_api.bat
+backend/test_api.sh
+frontend/README.md
+frontend/RESET_FUNCTIONALITY.md
+frontend/src/utils/messageService.js
