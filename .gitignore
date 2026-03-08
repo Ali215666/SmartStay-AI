@@ -25,7 +25,7 @@ tests/test_tool_evals.py
 
 # Existing later-assignment and generated workspace files
 .deepeval/
-main.py
+/main.py
 run_evals.py
 tests/*
 !tests/test_assignment_one.py
@@ -41,3 +41,6 @@ backend/test_api.sh
 frontend/README.md
 frontend/RESET_FUNCTIONALITY.md
 frontend/src/utils/messageService.js
+!frontend/package-lock.json
+backend/.dockerignore
+frontend/.gitignore
