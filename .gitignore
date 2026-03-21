@@ -19,7 +19,6 @@ tools/
 knowledge_base/
 data/
 calendars/
-backend/app/voice_pipeline.py
 tests/test_rag_evals.py
 tests/test_tool_evals.py
 
@@ -29,7 +28,7 @@ tests/test_tool_evals.py
 run_evals.py
 tests/*
 !tests/test_assignment_one.py
-backend/app/voice_pipeline.py
+!tests/test_assignment_two.py
 backend/POSTMAN_TESTING_GUIDE.md
 backend/DOCKER_README.md
 backend/Hotel_AI_Backend.postman_environment.json
@@ -44,3 +43,8 @@ frontend/src/utils/messageService.js
 !frontend/package-lock.json
 backend/.dockerignore
 frontend/.gitignore
+
+# Local speech models are downloaded separately and can be large.
+models/
+*.onnx
+*.onnx.json
