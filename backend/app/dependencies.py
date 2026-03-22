@@ -1,5 +1,6 @@
 """Application service construction."""
 
+import asyncio
 from functools import lru_cache
 
 from conversation.memory_manager import MemoryManager
@@ -8,6 +9,7 @@ from conversation.session_manager import SessionManager
 from llm.ollama_client import OllamaClient
 
 from .websocket_manager import WebSocketManager
+from .voice_pipeline import AudioConverter, MoonshineASRService, PiperTTSService
 
 
 @lru_cache
@@ -34,3 +36,23 @@ def get_prompt_builder() -> PromptBuilder:
 def get_session_manager() -> SessionManager:
     return SessionManager(get_ollama_client(), get_memory_manager(), get_prompt_builder())
 
+
+@lru_cache
+def get_audio_converter() -> AudioConverter:
+    return AudioConverter()
+
+
+@lru_cache
+def get_asr_service() -> MoonshineASRService:
+    return MoonshineASRService(max_concurrency=4)
+
+
+@lru_cache
+def get_tts_service() -> PiperTTSService:
+    return PiperTTSService(max_concurrency=4)
+
+
+@lru_cache
+def get_voice_turn_capacity() -> asyncio.Semaphore:
+    """Limit the complete CPU-heavy voice pipeline to four active users."""
+    return asyncio.Semaphore(4)

@@ -1,6 +1,10 @@
 """FastAPI entry point for SmartStay AI."""
 
+import importlib.util
 import logging
+import os
+import shutil
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +36,23 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict:
-        return {"status": "healthy", "inference": "local-ollama"}
+        return {
+            "status": "healthy",
+            "inference": "local-ollama",
+            "voice_endpoint": "/ws/voice",
+            "max_concurrent_voice_users": 4,
+        }
+
+    @app.get("/health/voice")
+    async def voice_health() -> dict:
+        model_path = os.getenv("PIPER_MODEL_PATH", "")
+        checks = {
+            "ffmpeg": shutil.which("ffmpeg") is not None,
+            "moonshine": importlib.util.find_spec("moonshine_voice") is not None,
+            "piper": importlib.util.find_spec("piper") is not None,
+            "piper_model": bool(model_path and Path(model_path).is_file()),
+        }
+        return {"ready": all(checks.values()), "components": checks}
 
     @app.on_event("shutdown")
     async def shutdown() -> None:
@@ -42,4 +62,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
