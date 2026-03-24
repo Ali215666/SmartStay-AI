@@ -2,25 +2,18 @@ import MessageDisplay from './MessageDisplay'
 import InputBox from './InputBox'
 import './ChatInterface.css'
 
-export default function ChatInterface({
-  messages,
-  onSendMessage,
-  onReconnect,
-  isConnected,
-  isTyping,
-  connectionError,
-}) {
+export default function ChatInterface(props) {
   return (
     <main className="chat-interface">
-      {connectionError && (
+      {props.connectionError && (
         <div className="connection-error">
-          <span>{connectionError}</span>
-          <button className="reconnect-button" onClick={onReconnect}>Reconnect</button>
+          <span>{props.connectionError}</span>
+          <button className="reconnect-button" onClick={props.onReconnect}>Reconnect</button>
         </div>
       )}
       <div className="chat-container">
-        <MessageDisplay messages={messages} isTyping={isTyping} />
-        <InputBox onSendMessage={onSendMessage} isConnected={isConnected} isTyping={isTyping} />
+        <MessageDisplay messages={props.messages} isTyping={props.isTyping} />
+        <InputBox {...props} />
       </div>
     </main>
   )
