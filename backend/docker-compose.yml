@@ -8,7 +8,11 @@ services:
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: smartstay-qwen
+      PIPER_MODEL_PATH: /models/en_US-lessac-medium.onnx
+      PIPER_CONFIG_PATH: /models/en_US-lessac-medium.onnx.json
+      PIPER_LENGTH_SCALE: "1.0"
+    volumes:
+      - ../models:/models:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
-

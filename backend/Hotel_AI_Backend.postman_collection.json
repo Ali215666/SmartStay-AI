@@ -6,7 +6,8 @@
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8000" },
-    { "key": "wsUrl", "value": "ws://localhost:8000/ws/chat" }
+    { "key": "wsUrl", "value": "ws://localhost:8000/ws/chat" },
+    { "key": "voiceWsUrl", "value": "ws://localhost:8000/ws/voice" }
   ],
   "item": [
     {
@@ -32,7 +33,18 @@
         "url": "{{wsUrl}}",
         "description": "Open as a WebSocket request and send: {\"session_id\":\"postman-demo\",\"message\":\"I need a Deluxe room\"}"
       }
+    },
+    {
+      "name": "Voice Readiness",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health/voice" }
+    },
+    {
+      "name": "Voice Conversation",
+      "request": {
+        "method": "GET",
+        "url": "{{voiceWsUrl}}",
+        "description": "Open as a WebSocket request. Send an audio_start JSON control frame, one complete WebM/Opus recording as a binary frame, then audio_end. See README.md for the event schema."
+      }
     }
   ]
 }
-
