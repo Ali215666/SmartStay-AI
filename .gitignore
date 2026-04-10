@@ -13,12 +13,11 @@ dist/
 # Generated benchmark output
 eval_reports/
 
-# Later assignments (not part of Assignment 1)
-rag/
-tools/
-knowledge_base/
+# Generated local state and indexes
 data/
 calendars/
+rag/generate_docs.py
+rag/validate.py
 tests/test_rag_evals.py
 tests/test_tool_evals.py
 
@@ -29,6 +28,7 @@ run_evals.py
 tests/*
 !tests/test_assignment_one.py
 !tests/test_assignment_two.py
+!tests/test_assignment_three.py
 backend/POSTMAN_TESTING_GUIDE.md
 backend/DOCKER_README.md
 backend/Hotel_AI_Backend.postman_environment.json
