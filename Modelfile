@@ -1,8 +1,8 @@
 FROM qwen2.5:3b-instruct-q4_K_M
 
 # Conservative CPU settings for responsive local conversations.
-PARAMETER num_ctx 2048
-PARAMETER num_predict 160
+PARAMETER num_ctx 4096
+PARAMETER num_predict 200
 PARAMETER temperature 0.30
 PARAMETER top_p 0.85
 PARAMETER num_thread 0

@@ -22,7 +22,7 @@ class OllamaClient:
             "prompt": prompt,
             "stream": True,
             "keep_alive": "30m",
-            "options": {"num_ctx": 2048, "num_predict": 160, "temperature": 0.3},
+            "options": {"num_ctx": 4096, "num_predict": 200, "temperature": 0.3},
         }
         try:
             async with self._client.stream("POST", self.generate_url, json=payload) as response:
@@ -42,4 +42,3 @@ class OllamaClient:
 
     async def close(self) -> None:
         await self._client.aclose()
-

@@ -9,14 +9,16 @@ import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from .dependencies import (
     get_asr_service,
     get_audio_converter,
     get_session_manager,
+    get_retriever,
     get_tts_service,
+    get_tool_orchestrator,
     get_voice_turn_capacity,
     get_websocket_manager,
 )
@@ -36,14 +38,46 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     response: str
+    sources: list[dict] = Field(default_factory=list)
+    tools: list[dict] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2_000)
+    top_k: int = Field(default=3, ge=3, le=5)
 
 
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     sessions = get_session_manager()
     session_id = sessions.ensure_session(request.session_id, request.user_id)
-    response = await sessions.process_message(session_id, request.message)
-    return ChatResponse(session_id=session_id, response=response)
+    chunks, context = [], {"sources": [], "tools": []}
+    async for event in sessions.stream_events(session_id, request.message):
+        if event["type"] == "context":
+            context = event
+        elif event["type"] == "token":
+            chunks.append(event["content"])
+    return ChatResponse(
+        session_id=session_id,
+        response="".join(chunks),
+        sources=context["sources"],
+        tools=context["tools"],
+    )
+
+
+@router.post("/api/retrieve")
+async def retrieve(request: RetrieveRequest) -> dict:
+    started = time.perf_counter()
+    try:
+        results = await asyncio.to_thread(get_retriever().retrieve, request.query, request.top_k)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"results": results, "latency_ms": round((time.perf_counter() - started) * 1_000, 2)}
+
+
+@router.get("/api/tools")
+async def list_tools() -> dict:
+    return {"tools": get_tool_orchestrator().registry.schemas(), "mcp_endpoint": "http://localhost:8001/mcp"}
 
 
 @router.delete("/api/sessions/{session_id}")
@@ -75,8 +109,8 @@ async def websocket_chat(websocket: WebSocket) -> None:
 
             await websocket.send_json({"type": "start", "session_id": session_id})
             try:
-                async for token in sessions.stream_message(session_id, message):
-                    await websocket.send_json({"type": "token", "content": token})
+                async for event in sessions.stream_events(session_id, message):
+                    await websocket.send_json(event)
                 await websocket.send_json({"type": "done", "session_id": session_id})
             except RuntimeError as exc:
                 await websocket.send_json({"type": "error", "message": str(exc)})
@@ -172,7 +206,11 @@ async def _process_voice_turn(
         first_fragment = True
         first_token_at = None
         try:
-            async for token in sessions.stream_message(session_id, transcript):
+            async for event in sessions.stream_events(session_id, transcript):
+                if event["type"] == "context":
+                    await _send_event(websocket, send_lock, event)
+                    continue
+                token = event["content"]
                 if first_token_at is None:
                     first_token_at = time.perf_counter()
                 phrase_buffer += token

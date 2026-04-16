@@ -1,5 +1,6 @@
 """FastAPI entry point for SmartStay AI."""
 
+import asyncio
 import importlib.util
 import logging
 import os
@@ -9,7 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .app.dependencies import get_ollama_client
+from .app.dependencies import get_ollama_client, get_retriever
 from .app.routes import router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -41,6 +42,10 @@ def create_app() -> FastAPI:
             "inference": "local-ollama",
             "voice_endpoint": "/ws/voice",
             "max_concurrent_voice_users": 4,
+            "rag_documents": 50,
+            "rag_top_k": 3,
+            "tools": 4,
+            "mcp_endpoint": "http://localhost:8001/mcp",
         }
 
     @app.get("/health/voice")
@@ -57,6 +62,14 @@ def create_app() -> FastAPI:
     @app.on_event("shutdown")
     async def shutdown() -> None:
         await get_ollama_client().close()
+
+    @app.on_event("startup")
+    async def warm_retrieval() -> None:
+        try:
+            await asyncio.to_thread(get_retriever().retrieve, "hotel check-in policy", 3)
+            logging.getLogger(__name__).info("RAG index and embedding model warmed")
+        except Exception as exc:
+            logging.getLogger(__name__).warning("RAG warm-up skipped: %s", exc)
 
     return app
 
