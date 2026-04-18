@@ -34,6 +34,20 @@ export default function MessageDisplay({ messages, isTyping }) {
                 <div className="message-timestamp">
                   {message.source === 'voice' ? 'Voice · ' : ''}{message.timestamp}
                 </div>
+                {(message.sources?.length > 0 || message.tools?.length > 0) && (
+                  <div className="message-evidence">
+                    {message.sources?.map((source) => (
+                      <span key={source.source} title={`Similarity ${source.score}`}>
+                        Source: {source.title || source.source}
+                      </span>
+                    ))}
+                    {message.tools?.map((tool) => (
+                      <span key={tool.name} className={tool.ok ? 'tool-ok' : 'tool-error'}>
+                        Tool: {tool.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}

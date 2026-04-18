@@ -66,8 +66,8 @@ class VoiceService {
     }
   }
 
-  begin(sessionId, mimeType) {
-    return this.sendJson({ type: 'audio_start', session_id: sessionId, mime_type: mimeType })
+  begin(sessionId, userId, mimeType) {
+    return this.sendJson({ type: 'audio_start', session_id: sessionId, user_id: userId, mime_type: mimeType })
   }
 
   sendRecording(arrayBuffer) {
@@ -106,4 +106,3 @@ class VoiceService {
 }
 
 export default new VoiceService()
-

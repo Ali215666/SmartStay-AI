@@ -6,6 +6,13 @@ import './App.css'
 
 const newSessionId = () => crypto.randomUUID()
 const stamp = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+const persistentUserId = () => {
+  const existing = localStorage.getItem('smartstay_user_id')
+  if (existing) return existing
+  const created = crypto.randomUUID()
+  localStorage.setItem('smartstay_user_id', created)
+  return created
+}
 
 function App() {
   const [sessionId, setSessionId] = useState(newSessionId)
@@ -20,6 +27,7 @@ function App() {
   const recorderRef = useRef(null)
   const streamRef = useRef(null)
   const recordedChunksRef = useRef([])
+  const userId = useRef(persistentUserId())
 
   const updateAssistantToken = (token) => {
     setMessages((current) => current.map((message) =>
@@ -37,6 +45,14 @@ function App() {
     setTyping(false)
   }
 
+  const applyContext = (context) => {
+    setMessages((current) => current.map((message) =>
+      message.id === streamingId.current
+        ? { ...message, sources: context.sources || [], tools: context.tools || [] }
+        : message
+    ))
+  }
+
   const connect = () => {
     setError('')
     websocketService.connect(import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/chat')
@@ -51,8 +67,9 @@ function App() {
       setTyping(false)
     })
     websocketService.onStreamToken(updateAssistantToken)
-    websocketService.onMessage(({ type }) => {
+    websocketService.onMessage(({ type, data }) => {
       if (type === 'end') finishStreaming()
+      else if (data?.type === 'context') applyContext(data)
     })
 
     voiceService.onConnection(setVoiceConnected)
@@ -68,6 +85,8 @@ function App() {
         setTyping(true)
       } else if (event.type === 'token') {
         updateAssistantToken(event.content)
+      } else if (event.type === 'context') {
+        applyContext(event)
       } else if (event.type === 'status') {
         setVoiceStage(event.stage)
       } else if (event.type === 'done') {
@@ -92,7 +111,7 @@ function App() {
 
   const sendMessage = (content) => {
     const assistantId = crypto.randomUUID()
-    if (!websocketService.send({ session_id: sessionId, message: content })) {
+    if (!websocketService.send({ session_id: sessionId, user_id: userId.current, message: content })) {
       setError('Not connected to the SmartStay API.')
       return
     }
@@ -128,7 +147,7 @@ function App() {
         setVoiceStage('uploading')
         voiceService.sendRecording(await blob.arrayBuffer())
       }
-      if (!voiceService.begin(sessionId, mimeType)) throw new Error('Voice socket is unavailable')
+      if (!voiceService.begin(sessionId, userId.current, mimeType)) throw new Error('Voice socket is unavailable')
       recorder.start()
       setRecording(true)
       setVoiceStage('recording')
@@ -181,4 +200,3 @@ function App() {
 }
 
 export default App
-
