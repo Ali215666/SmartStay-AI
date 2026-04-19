@@ -18,6 +18,9 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 COPY backend /app/backend
 COPY conversation /app/conversation
 COPY llm /app/llm
+COPY rag /app/rag
+COPY tools /app/tools
+COPY knowledge_base /app/knowledge_base
 
 USER smartstay
 EXPOSE 8000

@@ -29,7 +29,7 @@ class MemoryAndPromptTests(unittest.TestCase):
             "It is for two guests",
         )
 
-        self.assertIn("Do not call tools", prompt)
+        self.assertIn("Only discuss hotel", prompt)
         self.assertIn("I need a Deluxe room", prompt)
         self.assertIn("It is for two guests", prompt)
 
@@ -54,4 +54,3 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

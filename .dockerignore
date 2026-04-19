@@ -6,10 +6,6 @@ frontend
 node_modules
 dist
 models
-rag
-tools
-knowledge_base
 data
 calendars
 eval_reports
-
