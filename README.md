@@ -1,130 +1,180 @@
 # SmartStay AI
 
-SmartStay AI is a fully local, CPU-oriented hotel front-desk assistant with real-time text and voice conversations. It combines a quantized Qwen model through Ollama, bounded conversational memory, Moonshine speech recognition, Piper speech synthesis, FastAPI WebSockets, and a React interface.
+SmartStay AI is a CPU-oriented hotel assistant with text and voice conversations, persistent guest profiles, grounded hotel-policy answers, and action tools. Assignment 3 adds a 50-document RAG pipeline, CRM, calculator, calendar, weather, and an official MCP server while preserving the previous FastAPI/WebSocket and browser contracts.
 
+## Business use case
+
+Hotel guests repeatedly ask policy questions, compare room costs, provide preferences, check travel weather, and place stay dates on their calendars. RAG grounds policy answers in the hotel's own documents instead of relying on model memory. CRM personalizes later sessions, while tools return deterministic prices, write calendar holds, and fetch time-sensitive weather.
 
 ## Architecture
 
-```text
-Text:  React UI <-> /ws/chat  <-> Conversation Manager <-> Local Ollama/Qwen
-
-Voice: Microphone -> /ws/voice -> ffmpeg -> Moonshine ASR
-                                      |
-                                      v
-                              Conversation Manager
-                                      |
-                                      v
-                              Local Ollama/Qwen
-                                      |
-                                      v
- Browser playback <- ordered WAV <- Piper TTS <- phrase buffer
+```mermaid
+flowchart LR
+    UI[React text + voice UI] <-->|WebSocket| API[FastAPI]
+    API --> CM[Conversation Manager]
+    CM -->|parallel| RAG[MiniLM + FAISS]
+    CM -->|parallel| ORCH[Tool Orchestrator]
+    ORCH --> CRM[(SQLite CRM)]
+    ORCH --> CALC[Calculator]
+    ORCH --> CAL[Local iCalendar]
+    ORCH --> WEATHER[Open-Meteo]
+    CM --> LLM[Ollama + Qwen 2.5 3B Q4]
+    API --> ASR[Moonshine ASR]
+    LLM --> TTS[Piper TTS]
+    MCP[Official MCP server :8001] --> CRM
+    MCP --> CALC
+    MCP --> CAL
+    MCP --> WEATHER
 ```
 
-Text and voice use the same client-generated session ID, so a guest can switch modalities without losing context. Different users run concurrently, while a per-session lock protects turn order. ASR, TTS, and the complete voice pipeline each admit up to four active users.
+For each turn, retrieval, guest-profile loading, and relevant tool calls start concurrently. Their results are bounded and inserted into one final prompt before Qwen streams tokens. Voice uses the same orchestration after Moonshine transcription and sends Piper WAV phrases while text is still arriving.
 
-See [Assignment 1's business case](docs/use-case.md) and the detailed [Assignment 2 voice design](docs/assignment-two.md).
+## Model selection
 
-## Local models
+| Component | Selection | Reason |
+|---|---|---|
+| LLM | Qwen 2.5 3B Instruct Q4_K_M via Ollama | Strong small-model instruction following with laptop-scale quantized memory use |
+| Embeddings | all-MiniLM-L6-v2 | 384-dimensional CPU-friendly semantic embeddings |
+| ASR | Moonshine English | Local lightweight speech recognition |
+| TTS | Piper | Fast local ONNX speech synthesis |
 
-- **Conversation:** Qwen 2.5 3B Instruct, Q4_K_M, served by Ollama.
-- **ASR:** Moonshine English, loaded locally by `moonshine-voice`.
-- **TTS:** Piper with a local `.onnx` voice and matching `.onnx.json` configuration.
+The LLM context is 4,096 tokens with output capped at 200 tokens. Actual tokens/second and peak RAM depend on the submission laptop and must be recorded with the benchmark procedure below; this repository does not invent those figures.
 
-The included `Modelfile` uses a 2,048-token context and caps output at 160 tokens for predictable CPU use.
+## Document collection and RAG
+
+The repository contains exactly **50** domain documents in `knowledge_base/`, covering booking, payment, rooms, amenities, safety, and hotel policies.
+
+- Rebuild command: `python -m rag.build_index`
+- Chunks: 180 words with 30-word overlap
+- Embedding model: `sentence-transformers/all-MiniLM-L6-v2`
+- Vector store: persisted FAISS `IndexFlatIP`
+- Similarity: cosine similarity through L2 normalization
+- Retrieval: top-k = 3 (API permits 3–5)
+- Cache: 128 normalized queries in process
+- Context control: three passages capped at 900 characters and eight recent messages
+- Citations: the prompt supplies filenames and requires `[source.txt]` citations
+
+Generated index files under `data/index/` are ignored because they are reproducible and platform-dependent.
+
+## Tools and MCP
+
+The same async implementations are registered in-process for low latency and exposed through the [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) at `http://localhost:8001/mcp`.
+
+| Tool | Purpose | Required schema fields | Example intent |
+|---|---|---|---|
+| `crm_profile` | Get/upsert a profile or record an interaction in SQLite | `action`, `user_id` | “My name is Ali and I prefer a quiet room.” |
+| `calculate_room_cost` | Calculate deterministic stay pricing | `room_type`, `check_in`, `check_out` | “How much is a Deluxe room from 2026-05-01 to 2026-05-04?” |
+| `create_calendar_event` | Write a local `.ics` stay hold | `user_id`, `room_type`, `check_in`, `check_out` | “Book a Suite from 2026-05-01 to 2026-05-04.” |
+| `get_weather` | Fetch a city forecast from [Open-Meteo](https://open-meteo.com/en/docs) | `city` | “What is the weather in Islamabad on 2026-05-01?” |
+
+Schemas are available at `GET /api/tools`. Calendar events are holds, not confirmed hotel reservations. Weather results are cached for ten minutes. Every call is validated, asynchronous, timed, and bounded by a timeout. The MCP example client is in `examples/mcp_client.py`.
+
+## Real-time optimization
+
+- RAG, CRM lookup, and relevant tool calls execute concurrently.
+- Embedding models and FAISS are warmed during API startup.
+- Repeated retrieval and weather queries use bounded caches.
+- Blocking ASR, embeddings, FAISS startup, SQLite, file writes, and TTS run off the asyncio event loop.
+- Preprocessing metrics are returned in each WebSocket `context` event.
+- Per-session locks preserve order while different users continue concurrently.
+- Tool errors are inserted into the prompt so generation can fail gracefully.
+
+Run the measured preprocessing benchmark:
 
 ```bash
+python benchmarks/rag_tools_latency.py
+```
+
+| Required measurement | Submission-machine result |
+|---|---:|
+| Average warm retrieval + tool preprocessing | _Run benchmark_ |
+| Median warm preprocessing | _Run benchmark_ |
+| Two-user concurrent preprocessing | _Run benchmark_ |
+| Typical end-to-end LLM response | _Run live evaluation_ |
+| Qwen tokens/second and peak RAM | _Run live evaluation_ |
+
+The assignment target is under two seconds combined preprocessing. Use the emitted metrics and benchmark output to determine whether the submission laptop meets it.
+
+## Setup
+
+### 1. Clone and create the models
+
+```bash
+git clone https://github.com/Ali215666/SmartStay-AI.git
+cd SmartStay-AI
 ollama create smartstay-qwen -f Modelfile
 ```
 
-Download a Piper voice into `models/`. The default Docker configuration expects:
+Place a Piper `.onnx` voice and matching `.onnx.json` file in `models/` as described in the Assignment 2 setup.
 
-```text
-models/en_US-lessac-medium.onnx
-models/en_US-lessac-medium.onnx.json
-```
-
-Model binaries are intentionally excluded from Git.
-
-## Run locally
-
-Prerequisites: Python 3.11, Node.js 18+, Ollama, and ffmpeg available on `PATH`.
-
-### Backend
+### 2. Native development
 
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r backend/requirements.txt
-
-# Windows PowerShell
-$env:PIPER_MODEL_PATH="models/en_US-lessac-medium.onnx"
-$env:PIPER_CONFIG_PATH="models/en_US-lessac-medium.onnx.json"
-
+python -m rag.build_index
 uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-Check `http://localhost:8000/health/voice`. Its `ready` field becomes `true` when ffmpeg, Moonshine, Piper, and the Piper model are available.
-
-### Frontend
+In separate terminals:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+python -m tools.mcp_server
+cd frontend && npm install && npm run dev
 ```
 
-Open `http://localhost:5173`, allow microphone access, press the round microphone button, speak, then press stop. The recognized transcript appears in the shared conversation while the answer streams as text and audio.
+Environment variables:
 
-### Docker
+| Variable | Default/purpose |
+|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_MODEL` | `smartstay-qwen` |
+| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` |
+| `CRM_DB_PATH` | `data/crm.sqlite3` |
+| `PIPER_MODEL_PATH` | Required local `.onnx` path |
+| `PIPER_CONFIG_PATH` | Matching voice configuration |
 
-Keep Ollama running on the host and place the Piper files in `models/`, then run:
+### 3. Docker Compose
 
 ```bash
 docker compose -f backend/docker-compose.yml up --build
 ```
 
-## APIs
+Compose builds the index once, starts the API on port 8000, starts MCP on port 8001, and persists indexes, CRM, and calendar files in named volumes. Ollama remains on the host for direct CPU access.
 
-- `POST /api/chat` — non-streaming text request.
-- `WS /ws/chat` — streaming text conversation.
-- `WS /ws/voice` — binary recording upload with transcript, text-token, and WAV events.
-- `DELETE /api/sessions/{session_id}` — clears volatile session state.
-- `GET /health/voice` — checks local voice prerequisites.
+## APIs and testing
 
-The voice recording limit is 8 MB and 30 seconds. Its full event schema is documented in [docs/assignment-two.md](docs/assignment-two.md). A Postman collection is included at `backend/Hotel_AI_Backend.postman_collection.json`.
+- `POST /api/chat`
+- `POST /api/retrieve`
+- `GET /api/tools`
+- `WS /ws/chat`
+- `WS /ws/voice`
+- MCP Streamable HTTP: `http://localhost:8001/mcp`
 
-## Tests and evaluation
-
-Deterministic tests do not load the speech or language models:
+Run deterministic tests and the frontend build:
 
 ```bash
-python -m unittest tests.test_assignment_one tests.test_assignment_two
+python -m unittest tests.test_assignment_one tests.test_assignment_two tests.test_assignment_three
 npm run build --prefix frontend
 ```
 
-Measure the actual voice pipeline against a running server:
-
-```bash
-python benchmarks/voice_latency.py sample.webm --runs 5
-```
-
-The benchmark reports transcript latency, time to first token, time to first audio, and total turn latency. The `<1 s` goal must be evaluated on the submission laptop after model warm-up; the repository does not fabricate hardware-dependent results.
-
-## Failure handling
-
-- CPU-heavy speech operations run outside the async event loop.
-- Recordings, message lengths, conversion duration, and concurrency are bounded.
-- Missing ffmpeg, speech packages, or Piper model files produce explicit errors.
-- A TTS failure preserves the streamed transcript and text response.
-- Browser audio phrases are queued and played in sequence.
-- WebSockets are cleaned up on disconnect.
+The Postman collection is `backend/Hotel_AI_Backend.postman_collection.json`.
 
 ## Known limitations
 
-- Conversation state is in memory and is lost on restart.
-- Speech recognition currently uses the English Moonshine model.
-- The browser uploads a complete utterance when recording stops; it does not perform partial-word ASR.
-- Cold model loading can exceed the sub-second latency target.
-- CPU performance varies substantially by hardware and concurrent load.
-- The assistant cannot verify availability or complete a real reservation.
+- First-time model download and cold loading are much slower than warm queries.
+- The in-process RAG cache is per API worker.
+- CRM and calendar use local disk; multi-host deployment needs shared storage.
+- The intent router handles explicit dates in `YYYY-MM-DD` most reliably.
+- Open-Meteo requires internet access and may time out.
+- Calendar events do not prove hotel availability.
+- English is the configured ASR language.
+- The demo video and hardware benchmark values must be added from the submission machine.
+
+## Cloud deployment
+
+Cloud deployment was not attempted. The Docker split permits moving the API, MCP service, and persistent data independently, but free-tier CPU/RAM limits are likely to make the local Qwen, MiniLM, Moonshine, and Piper stack slower than the laptop deployment.
+
+Additional design and evaluation notes are in [docs/assignment-three.md](docs/assignment-three.md).
