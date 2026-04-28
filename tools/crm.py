@@ -20,7 +20,7 @@ CRM_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "action": {"type": "string", "enum": ["get", "upsert", "record_interaction"]},
+            "action": {"type": "string", "enum": ["get", "upsert", "delete", "record_interaction"]},
             "user_id": {"type": "string"},
             "name": {"type": "string"},
             "email": {"type": "string"},
@@ -116,6 +116,15 @@ class CRMStore:
     async def record(self, user_id: str, interaction: str) -> dict:
         return await asyncio.to_thread(self._record_sync, user_id, interaction)
 
+    def _delete_sync(self, user_id: str) -> bool:
+        with self._lock, closing(self._connect()) as connection:
+            cursor = connection.execute("DELETE FROM guests WHERE user_id = ?", (user_id,))
+            connection.commit()
+            return cursor.rowcount > 0
+
+    async def delete(self, user_id: str) -> bool:
+        return await asyncio.to_thread(self._delete_sync, user_id)
+
 
 _default_store: Optional[CRMStore] = None
 
@@ -145,6 +154,8 @@ async def crm_profile(
             user_id, name=name, email=email, phone=phone, preference=preference
         )
         return {"ok": True, "profile": profile}
+    if action == "delete":
+        return {"ok": True, "deleted": await store.delete(user_id)}
     if action == "record_interaction" and interaction:
         return {"ok": True, "profile": await store.record(user_id, interaction)}
     return {"ok": False, "error": "Invalid CRM action or missing interaction"}

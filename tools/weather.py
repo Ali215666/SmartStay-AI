@@ -25,13 +25,13 @@ _cache_lock = asyncio.Lock()
 
 
 async def get_weather(city: str, date: Optional[str] = None) -> dict:
-    import httpx
-
     target_date = date or date_type.today().isoformat()
     try:
         date_type.fromisoformat(target_date)
     except ValueError:
         return {"ok": False, "error": "Date must use YYYY-MM-DD"}
+    import httpx
+
     key = (city.strip().lower(), target_date)
     async with _cache_lock:
         cached = _cache.get(key)

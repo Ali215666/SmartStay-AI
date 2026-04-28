@@ -9,6 +9,16 @@ from typing import Callable, List, Optional
 
 
 class RAGRetriever:
+    RETRIEVAL_TERMS = {
+        "policy", "policies", "check-in", "check in", "check-out", "check out",
+        "room type", "amenity", "amenities", "pool", "gym", "wifi", "wi-fi",
+        "breakfast", "restaurant", "parking", "pet", "smoking", "visitor",
+        "refund", "cancel", "laundry", "housekeeping", "payment", "meeting",
+        "spa", "dietary", "meal", "airport", "accessible", "attraction",
+        "tax", "deposit", "no-show", "no show", "group booking", "room service",
+        "business center", "hotel location", "directions", "security", "safety",
+    }
+
     def __init__(
         self,
         index_dir: Optional[Path] = None,
@@ -22,6 +32,11 @@ class RAGRetriever:
         self.cache_size = cache_size
         self._cache: OrderedDict[tuple, List[dict]] = OrderedDict()
         self._lock = RLock()
+
+    @classmethod
+    def should_retrieve(cls, query: str) -> bool:
+        normalized = " ".join(query.lower().split())
+        return any(term in normalized for term in cls.RETRIEVAL_TERMS)
 
     def _ensure_dependencies(self) -> None:
         if self._embed_query is None:
@@ -58,4 +73,3 @@ class RAGRetriever:
     def clear_cache(self) -> None:
         with self._lock:
             self._cache.clear()
-

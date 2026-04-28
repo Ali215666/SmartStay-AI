@@ -40,6 +40,8 @@ class SessionManager:
     async def _retrieve(self, message: str) -> tuple[list, float, Optional[str]]:
         if self.retriever is None:
             return [], 0.0, None
+        if hasattr(self.retriever, "should_retrieve") and not self.retriever.should_retrieve(message):
+            return [], 0.0, None
         started = time.perf_counter()
         try:
             results = await asyncio.to_thread(self.retriever.retrieve, message, 3)
@@ -120,4 +122,3 @@ class SessionManager:
         self._locks.pop(session_id, None)
         self.memory_manager.delete_session(session_id)
         return existed
-
