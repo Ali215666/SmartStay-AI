@@ -29,6 +29,7 @@ tests/*
 !tests/test_assignment_one.py
 !tests/test_assignment_two.py
 !tests/test_assignment_three.py
+!tests/test_evaluation_suite.py
 backend/POSTMAN_TESTING_GUIDE.md
 backend/DOCKER_README.md
 backend/Hotel_AI_Backend.postman_environment.json
