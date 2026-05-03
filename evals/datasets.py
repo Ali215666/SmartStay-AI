@@ -63,4 +63,3 @@ def validate_datasets(repository_root: Path | None = None) -> dict:
             "corpus_documents": len(corpus_sources),
         },
     }
-

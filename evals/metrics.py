@@ -62,4 +62,3 @@ def summarize(values: Iterable[float]) -> dict:
         "max": max(data),
         "mean_ci95": [low, high],
     }
-

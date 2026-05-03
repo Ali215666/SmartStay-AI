@@ -30,4 +30,3 @@
   {"id":"rag_29","query":"Can I request a special meal?","relevant_sources":["special_meal_requests_policy.txt"],"answer_terms":["meal"]},
   {"id":"rag_30","query":"What facilities are in the business center?","relevant_sources":["business_center_policy.txt"],"answer_terms":["business"]}
 ]
-

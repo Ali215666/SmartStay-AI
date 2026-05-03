@@ -84,4 +84,3 @@ async def evaluate_conversations(ws_url: str, timeout: float = 120, limit: int |
         "results": results,
         "method": "Deterministic rubric checks over responses, source events, tool events, and remembered terms",
     }
-

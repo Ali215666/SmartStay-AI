@@ -22,4 +22,3 @@ class EvalConfig:
 
 
 DATASET_DIR = Path(__file__).resolve().parent / "datasets"
-
