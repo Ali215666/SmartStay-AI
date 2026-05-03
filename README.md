@@ -1,6 +1,6 @@
 # SmartStay AI
 
-A private, CPU-first hotel concierge that combines streaming text and voice conversations, grounded retrieval, persistent guest profiles, deterministic action tools, and a reproducible evaluation laboratory.
+SmartStay AI is a privacy-focused, locally deployed virtual hotel concierge that delivers natural, real-time assistance through both text and voice. Powered by a quantized open-weight language model, it maintains multi-turn conversation context, grounds hotel information in a curated knowledge base, remembers guest details through a persistent CRM, and safely handles practical requests such as room-cost estimates, calendar holds, and travel-weather checks. Its asynchronous FastAPI and WebSocket architecture supports streaming responses and concurrent guests on consumer CPU hardware, while the included evaluation suite measures conversational quality, retrieval accuracy, tool reliability, latency, throughput, and overall production readiness.
 
 
 ## Table of contents
@@ -35,9 +35,7 @@ A private, CPU-first hotel concierge that combines streaming text and voice conv
 28. [Failure handling](#failure-handling)
 29. [Known limitations](#known-limitations)
 30. [Troubleshooting](#troubleshooting)
-31. [Demo plan](#demo-plan)
-32. [Submission checklist](#submission-checklist)
-33. [Project team and links](#project-team-and-links)
+
 
 ## Project overview
 
